@@ -1,5 +1,5 @@
 import psycopg2
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, UniqueConstraint ,exists,Sequence,select,case,cast, insert
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, UniqueConstraint ,exists,Sequence,select,case,cast, insert,and_
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import ForeignKey
@@ -277,7 +277,7 @@ class Model:
 
     def search_request2(self):
 
-        answer = (
+        CTE =(
             select(
                 SubCategory.Name.label('SubCategoryName'),
                 Brand.Name.label('BrandName'),
@@ -289,14 +289,10 @@ class Model:
             .join(SubCategory_Brand, SubCategory.SubCategory_id == SubCategory_Brand.SubCategory_id)
             .join(Brand, SubCategory_Brand.Brand_id == Brand.Brand_id)
             .join(Product, Brand.Brand_id == Product.Brand_id)
-            .where(
-                (Product.Width ==  select(func.max(Product.Width)).select_from(Product).scalar_subquery()) |
-                (Product.Height == select(func.max(Product.Height)).select_from(Product).scalar_subquery())
-            )
-        )
-        print("Max Width:", self.session.execute( select(func.max(Product.Width))).scalar())
-        print("Max Height:", self.session.execute(select(func.max(Product.Height))).scalar())
-        print(answer)
+            .cte('filtered'))
+
+        answer = (select(CTE).where(and_(CTE.c.ProductWidth == (select(func.max(CTE.c.ProductWidth)).select_from(CTE).as_scalar()),CTE.c.ProductHeight == select(func.max(CTE.c.ProductHeight)).select_from(CTE) .as_scalar())))
+
         result = self.session.execute(answer)
         return result.fetchall(), result.keys()
 
